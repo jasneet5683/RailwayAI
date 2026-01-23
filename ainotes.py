@@ -651,6 +651,7 @@ def chat(request: PromptRequest):
         llm_with_tools = llm.bind_tools(tools)
 
         # 4. System Prompt
+        # NOTE: Double braces {{ }} are used here to escape JSON inside the f-string
         system_msg = f"""
         You are an advanced Project Manager Agent.
         
@@ -682,6 +683,7 @@ def chat(request: PromptRequest):
             "client": "Client Name",
             "notify_email": "email@example.com"
         }}
+        ```
 
         FORMAT FOR CHART (For Chat Display Only):
         ```json
@@ -708,7 +710,6 @@ def chat(request: PromptRequest):
             HumanMessage(content=request.prompt)
         ]
 
-
         print("🤖 AI Thinking...")
         ai_response = llm_with_tools.invoke(messages)
 
@@ -728,12 +729,21 @@ def chat(request: PromptRequest):
                 else:
                     results.append(f"Error: Tool {tool_name} not found.")
 
+            # FIXED: Closed the dictionary properly
             return {
                 "response": " | ".join(results),
-                "type in content:
+                "type": "text",
+                "status": "success"
             }
+
+        # --- CASE B: JSON ACTIONS (Visuals & Add Task) ---
+        # Get content cleanly first
+        content = ai_response.content.strip()
+
+        if "```json" in content:
             try:
                 # Extract clean JSON string
+                # FIXED: split() logic adjusted
                 clean_json = content.split("```json")[1].split("```")[0].strip()
                 data_obj = json.loads(clean_json)
                 
@@ -755,7 +765,7 @@ def chat(request: PromptRequest):
                         "status": "success"
                     }
                 
-                # 3. (THE MISSING BLOCK) Handle Task Addition
+                # 3. Handle Task Addition
                 if data_obj.get("action") == "add":
                     print("📝 AI requesting to ADD a new task...")
                     
@@ -770,8 +780,7 @@ def chat(request: PromptRequest):
                         "notify_email": data_obj.get("notify_email", None)
                     }
 
-                    # Call your internal API endpoint to actually save the task
-                    # Ensure this URL matches your deployed Railway URL
+                    # Call internal API endpoint
                     api_url = "https://web-production-b8ca4.up.railway.app/api/add-task"
                     
                     sheet_response = requests.post(api_url, json=task_payload)
@@ -801,10 +810,10 @@ def chat(request: PromptRequest):
             "status": "success"
         }
 
-
     except Exception as e:
         print(f"❌ Chat Error: {e}")
         return {"response": f"Error: {str(e)}", "status": "error"}
+
 
     if __name__ == "__main__":
     import uvicorn
