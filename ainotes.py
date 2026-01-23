@@ -535,10 +535,10 @@ def read_root():
     return {"status": "active", "message": "Backend is running. Data loaded: " + str(document_loaded)}
 
 #End Point to test Team
-@app.get("/api/test-team")
-def test_team():
-    directory = get_team_directory()
-    return {"message": "Directory loaded", "data": directory}
+# @app.get("/api/test-team")
+# def test_team():
+#    directory = get_team_directory()
+#    return {"message": "Directory loaded", "data": directory}
 
 @app.get("/api/status")
 def get_status():
@@ -662,11 +662,26 @@ def chat(request: PromptRequest):
            - PARAMETER 'attachment_type': Set this to 'chart', 'table', or 'none' strictly based on user request.
         
         INSTRUCTIONS:
+        - If the user says "Add task [task_name]", call the function responsible for adding a task (e.g., via 'add_task' configured for additions).
+        - If the user says "Update task [task_name]", call the function responsible for updating a task (e.g., via 'update_sheet_tool' configured for updates).
         - If the user says "Send email with a CHART", call 'send_email_tool' with attachment_type='chart'.
         - If the user says "Send email with a TABLE", call 'send_email_tool' with attachment_type='table'.
         - If the user says "Send email", use attachment_type='none'.
         - Do NOT call the tool twice.
-        
+
+        FORMAT FOR TASK ADDITION (Output this JSON strictly):
+        ```json
+        {{
+            "action": "add",
+            "task_name": "Task Name",
+            "assigned_to": "Assignee Name",
+            "start_date": "YYYY-MM-DD",
+            "end_date": "YYYY-MM-DD",
+            "status": "Pending",
+            "client": "Client Name",
+            "notify_email": "email@example.com"
+        }}
+
         FORMAT FOR CHART (For Chat Display Only):
         ```json
         {{ "is_chart": true, "chart_type": "bar", "title": "Tasks by Status", "data": {{ "labels": ["Done", "Pending"], "values": [5, 2] }}, "summary": "Here is the chart." }}
@@ -724,17 +739,58 @@ def chat(request: PromptRequest):
                 # Extract JSON from code blocks
                 clean_json = content.split("```json")[1].split("```")[0].strip()
                 data_obj = json.loads(clean_json)
-                
+
+                #handles chart
                 if data_obj.get("is_chart"):
                     return {"response": data_obj["summary"], "chart_data": data_obj, "type": "chart", "status": "success"}
                 
-                # THIS BLOCK WILL NOW WORK BECAUSE THE AI KNOWS HOW TO GENERATE IT
+                # Handles tables
                 if data_obj.get("is_table"):
                     return {"response": data_obj["summary"], "table_data": data_obj, "type": "table", "status": "success"}
             except Exception as e:
                 print(f"JSON Parsing Error: {e}")
                 pass
-
+           # 3. Handle Task Addition (Google Sheets Integration)
+                if data_obj.get("action") == "add":
+            # Extract task details with safety defaults
+                    task_name = data_obj.get("task_name")
+                    assigned_to = data_obj.get("assigned_to", "Unassigned")
+                    start_date = data_obj.get("start_date", "")
+                    end_date = data_obj.get("end_date", "")
+                    status = data_obj.get("status", "Pending")
+                    client = data_obj.get("client", "")
+                    notify_email = data_obj.get("notify_email", None)
+            # Call your internal API to append data to Google Sheets
+            # Note: Update the URL below if your deployed domain differs from localhost
+            api_url = "https://web-production-b8ca4.up.railway.app/api/add-task" 
+            
+                sheet_response = requests.post(api_url, json={
+                    "task_name": task_name,
+                    "assigned_to": assigned_to,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "status": status,
+                    "client": client,
+                    "notify_email": notify_email
+            })
+            # Check if the Sheet update was successful
+                if sheet_response.status_code == 200:
+                    return {
+                    "response": f"✅ Task '{task_name}' has been successfully added to the Sheet.",
+                    "type": "text",
+                    "status": "success"
+                }
+                else:
+                    return {
+                    "response": f"❌ Failed to add task: {sheet_response.text}",
+                    "type": "text",
+                    "status": "error"
+                }
+        except Exception as e:
+            print(f"JSON Parsing Error: {e}")
+        # Optionally return a fallback message here
+        pass
+        
         # --- CASE C: TEXT ---
         return {
             "response": content,
