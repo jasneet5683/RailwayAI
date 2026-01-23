@@ -731,6 +731,7 @@ def chat(request: PromptRequest):
             return {
                 "response": " | ".join(results),
                 "type in content:
+            }
             try:
                 # Extract clean JSON string
                 clean_json = content.split("```json")[1].split("```")[0].strip()
