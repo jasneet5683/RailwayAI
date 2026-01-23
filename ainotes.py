@@ -765,14 +765,14 @@ def chat(request: PromptRequest):
             api_url = "https://web-production-b8ca4.up.railway.app/api/add-task" 
             
                 sheet_response = requests.post(api_url, json={
-                    "task_name": task_name,
-                    "assigned_to": assigned_to,
-                    "start_date": start_date,
-                    "end_date": end_date,
-                    "status": status,
-                    "client": client,
-                    "notify_email": notify_email
-            })
+                        "task_name": task_name,
+                        "assigned_to": assigned_to,
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "status": status,
+                        "client": client,
+                        "notify_email": notify_email
+                })
             # Check if the Sheet update was successful
                 if sheet_response.status_code == 200:
                     return {
