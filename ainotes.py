@@ -631,17 +631,18 @@ def chat(request: PromptRequest):
     global excel_text_context
     
     try:
-        # Reload if empty
+        # 1. Reload data context if missing
         if not document_loaded or not excel_text_context:
             load_data_global()
 
-        # Define Tools
+        # 2. Define Tools
         tools = [update_sheet_tool, send_email_tool]
         tool_map = {
             "update_sheet_tool": update_sheet_tool,
             "send_email_tool": send_email_tool
         }
 
+        # 3. Initialize LLM
         llm = ChatOpenAI(
             model="gpt-4o", 
             openai_api_key=openai_key,
@@ -649,7 +650,7 @@ def chat(request: PromptRequest):
         )
         llm_with_tools = llm.bind_tools(tools)
 
-               # UPDATED SYSTEM MESSAGE (Corrected Indentation & Structure)
+        # 4. System Prompt
         system_msg = f"""
         You are an advanced Project Manager Agent.
         
@@ -707,111 +708,104 @@ def chat(request: PromptRequest):
             HumanMessage(content=request.prompt)
         ]
 
+
         print("🤖 AI Thinking...")
         ai_response = llm_with_tools.invoke(messages)
 
-     # --- CASE A: TOOL CALLS ---
-if ai_response.tool_calls:
-    print(f"🔧 AI decided to use tools: {len(ai_response.tool_calls)}")
-    results = []
-    
-    for tool_call in ai_response.tool_calls:
-        tool_name = tool_call["name"]
-        tool_args = tool_call["args"]
-        
-        if tool_name in tool_map:
-            print(f"   -> Executing {tool_name} with args: {tool_args}")
-            tool_output = tool_map[tool_name].invoke(tool_args)
-            results.append(tool_output)
-        else:
-            results.append(f"Error: Tool {tool_name} not found.")
+        # --- CASE A: TOOL CALLS (LangChain Tools) ---
+        if ai_response.tool_calls:
+            print(f"🔧 AI decided to use tools: {len(ai_response.tool_calls)}")
+            results = []
+            
+            for tool_call in ai_response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+                
+                if tool_name in tool_map:
+                    print(f"   -> Executing {tool_name} with args: {tool_args}")
+                    tool_output = tool_map[tool_name].invoke(tool_args)
+                    results.append(str(tool_output))
+                else:
+                    results.append(f"Error: Tool {tool_name} not found.")
 
-    return {
-        "response": " | ".join(results),
-        "type": "text",
-        "status": "success"
-    }
-
-# --- CASE B: JSON VISUALS ---
-content = ai_response.content.strip()
-if "```json" in content:
-    try:
-        # Extract JSON from code blocks
-        # We split by ```json, take the second part, then split by ``` and take the first part
-        clean_json = content.split("```json")[1].split("```")[0].strip()
-        data_obj = json.loads(clean_json)
-        
-        # 1. Handle Chart
-        if data_obj.get("is_chart"):
             return {
-                "response": data_obj["summary"], 
-                "chart_data": data_obj, 
-                "type": "chart", 
-                "status": "success"
-            }
-        
-        # 2. Handle Tables
-        if data_obj.get("is_table"):
-            return {
-                "response": data_obj["summary"], 
-                "table_data": data_obj, 
-                "type": "table", 
-                "status": "success"
-            }
-        
-        # 3. Handle Task Addition (Google Sheets Integration)
-        if data_obj.get("action") == "add":
-            task_name = data_obj.get("task_name")
-            assigned_to = data_obj.get("assigned_to", "Unassigned")
-            start_date = data_obj.get("start_date", "")
-            end_date = data_obj.get("end_date", "")
-            status = data_obj.get("status", "Pending")
-            client = data_obj.get("client", "")
-            notify_email = data_obj.get("notify_email", None)
-            
-            api_url = "https://web-production-b8ca4.up.railway.app/api/add-task"
-            
-            sheet_response = requests.post(api_url, json={
-                "task_name": task_name,
-                "assigned_to": assigned_to,
-                "start_date": start_date,
-                "end_date": end_date,
-                "status": status,
-                "client": client,
-                "notify_email": notify_email
-            })
-            
-            if sheet_response.status_code == 200:
-                return {
-                    "response": f"✅ Task '{task_name}' has been successfully added to the Sheet.",
-                    "type": "text",
-                    "status": "success"
-                }
-            else:
-                return {
-                    "response": f"❌ Failed to add task: {sheet_response.text}",
-                    "type": "text",
-                    "status": "error"
-                }
+                "response": " | ".join(results),
+                "type in content:
+            try:
+                # Extract clean JSON string
+                clean_json = content.split("```json")[1].split("```")[0].strip()
+                data_obj = json.loads(clean_json)
+                
+                # 1. Handle Charts
+                if data_obj.get("is_chart"):
+                    return {
+                        "response": data_obj.get("summary", "Here is the chart."), 
+                        "chart_data": data_obj, 
+                        "type": "chart", 
+                        "status": "success"
+                    }
+                
+                # 2. Handle Tables
+                if data_obj.get("is_table"):
+                    return {
+                        "response": data_obj.get("summary", "Here is the table."), 
+                        "table_data": data_obj, 
+                        "type": "table", 
+                        "status": "success"
+                    }
+                
+                # 3. (THE MISSING BLOCK) Handle Task Addition
+                if data_obj.get("action") == "add":
+                    print("📝 AI requesting to ADD a new task...")
+                    
+                    # Extract task details from AI response
+                    task_payload = {
+                        "task_name": data_obj.get("task_name"),
+                        "assigned_to": data_obj.get("assigned_to", "Unassigned"),
+                        "start_date": data_obj.get("start_date", ""),
+                        "end_date": data_obj.get("end_date", ""),
+                        "status": data_obj.get("status", "Pending"),
+                        "client": data_obj.get("client", ""),
+                        "notify_email": data_obj.get("notify_email", None)
+                    }
 
-    except Exception as e:
-        print(f"JSON Parsing Error: {e}")
-        # Pass here so it falls through to Case C (Text) if JSON fails
-        pass
+                    # Call your internal API endpoint to actually save the task
+                    # Ensure this URL matches your deployed Railway URL
+                    api_url = "https://web-production-b8ca4.up.railway.app/api/add-task"
+                    
+                    sheet_response = requests.post(api_url, json=task_payload)
+                    
+                    if sheet_response.status_code == 200:
+                        return {
+                            "response": f"✅ Task '{task_payload['task_name']}' has been successfully added to the Sheet.",
+                            "type": "text",
+                            "status": "success"
+                        }
+                    else:
+                        return {
+                            "response": f"❌ Failed to add task. Server replied: {sheet_response.text}",
+                            "type": "text",
+                            "status": "error"
+                        }
 
-# --- CASE C: TEXT ---
-# This is the default return if no tools were used and no valid JSON was found
-return {
-    "response": content,
-    "type": "text",
-    "status": "success"
-}
+            except json.JSONDecodeError:
+                print("⚠️ Failed to parse JSON from AI response.")
+            except Exception as e:
+                print(f"⚠️ Error processing JSON action: {e}")
+
+        # --- CASE C: STANDARD TEXT RESPONSE ---
+        return {
+            "response": content,
+            "type": "text",
+            "status": "success"
+        }
+
 
     except Exception as e:
         print(f"❌ Chat Error: {e}")
         return {"response": f"Error: {str(e)}", "status": "error"}
 
-if __name__ == "__main__":
+    if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
     
