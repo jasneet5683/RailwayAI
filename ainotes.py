@@ -732,65 +732,71 @@ def chat(request: PromptRequest):
                 "status": "success"
             }
 
-        # --- CASE B: JSON VISUALS ---
-        content = ai_response.content.strip()
-        if "```json" in content:
-            try:
-                # Extract JSON from code blocks
-                clean_json = content.split("```json")[1].split("```")[0].strip()
-                data_obj = json.loads(clean_json)
-
-                #handles chart
-                if data_obj.get("is_chart"):
-                    return {"response": data_obj["summary"], "chart_data": data_obj, "type": "chart", "status": "success"}
-                
-                # Handles tables
-                if data_obj.get("is_table"):
-                    return {"response": data_obj["summary"], "table_data": data_obj, "type": "table", "status": "success"}
-            except Exception as e:
-                print(f"JSON Parsing Error: {e}")
-                pass
-           # 3. Handle Task Addition (Google Sheets Integration)
-                if data_obj.get("action") == "add":
+      # --- CASE B: JSON VISUALS ---
+content = ai_response.content.strip()
+if "```json" in content:
+    try:
+        # Extract JSON from code blocks
+        clean_json = content.split("```json")[1].split("```")[0].strip()
+        data_obj = json.loads(clean_json)
+        # 1. Handle Chart
+        if data_obj.get("is_chart"):
+            return {
+                "response": data_obj["summary"], 
+                "chart_data": data_obj, 
+                "type": "chart", 
+                "status": "success"
+            }
+        
+        # 2. Handle Tables
+        if data_obj.get("is_table"):
+            return {
+                "response": data_obj["summary"], 
+                "table_data": data_obj, 
+                "type": "table", 
+                "status": "success"
+            }
+        # 3. Handle Task Addition (Google Sheets Integration)
+        if data_obj.get("action") == "add":
             # Extract task details with safety defaults
-                    task_name = data_obj.get("task_name")
-                    assigned_to = data_obj.get("assigned_to", "Unassigned")
-                    start_date = data_obj.get("start_date", "")
-                    end_date = data_obj.get("end_date", "")
-                    status = data_obj.get("status", "Pending")
-                    client = data_obj.get("client", "")
-                    notify_email = data_obj.get("notify_email", None)
+            task_name = data_obj.get("task_name")
+            assigned_to = data_obj.get("assigned_to", "Unassigned")
+            start_date = data_obj.get("start_date", "")
+            end_date = data_obj.get("end_date", "")
+            status = data_obj.get("status", "Pending")
+            client = data_obj.get("client", "")
+            notify_email = data_obj.get("notify_email", None)
             # Call your internal API to append data to Google Sheets
-            # Note: Update the URL below if your deployed domain differs from localhost
             api_url = "https://web-production-b8ca4.up.railway.app/api/add-task" 
             
-                sheet_response = requests.post(api_url, json={
-                        "task_name": task_name,
-                        "assigned_to": assigned_to,
-                        "start_date": start_date,
-                        "end_date": end_date,
-                        "status": status,
-                        "client": client,
-                        "notify_email": notify_email
-                })
+            # The indentation here caused your specific error - now fixed:
+            sheet_response = requests.post(api_url, json={
+                "task_name": task_name,
+                "assigned_to": assigned_to,
+                "start_date": start_date,
+                "end_date": end_date,
+                "status": status,
+                "client": client,
+                "notify_email": notify_email
+            })
             # Check if the Sheet update was successful
-                if sheet_response.status_code == 200:
-                    return {
+            if sheet_response.status_code == 200:
+                return {
                     "response": f"✅ Task '{task_name}' has been successfully added to the Sheet.",
                     "type": "text",
                     "status": "success"
                 }
-                else:
-                    return {
+            else:
+                return {
                     "response": f"❌ Failed to add task: {sheet_response.text}",
                     "type": "text",
                     "status": "error"
                 }
-        except Exception as e:
-            print(f"JSON Parsing Error: {e}")
-        # Optionally return a fallback message here
+    except Exception as e:
+        print(f"JSON Parsing Error: {e}")
+        # Optionally return a fallback message here or pass
         pass
-        
+
         # --- CASE C: TEXT ---
         return {
             "response": content,
