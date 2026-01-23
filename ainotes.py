@@ -710,35 +710,37 @@ def chat(request: PromptRequest):
         print("🤖 AI Thinking...")
         ai_response = llm_with_tools.invoke(messages)
 
-        # --- CASE A: TOOL CALLS ---
-        if ai_response.tool_calls:
-            print(f"🔧 AI decided to use tools: {len(ai_response.tool_calls)}")
-            results = []
-            
-            for tool_call in ai_response.tool_calls:
-                tool_name = tool_call["name"]
-                tool_args = tool_call["args"]
-                
-                if tool_name in tool_map:
-                    print(f"   -> Executing {tool_name} with args: {tool_args}")
-                    tool_output = tool_map[tool_name].invoke(tool_args)
-                    results.append(tool_output)
-                else:
-                    results.append(f"Error: Tool {tool_name} not found.")
+     # --- CASE A: TOOL CALLS ---
+if ai_response.tool_calls:
+    print(f"🔧 AI decided to use tools: {len(ai_response.tool_calls)}")
+    results = []
+    
+    for tool_call in ai_response.tool_calls:
+        tool_name = tool_call["name"]
+        tool_args = tool_call["args"]
+        
+        if tool_name in tool_map:
+            print(f"   -> Executing {tool_name} with args: {tool_args}")
+            tool_output = tool_map[tool_name].invoke(tool_args)
+            results.append(tool_output)
+        else:
+            results.append(f"Error: Tool {tool_name} not found.")
 
-            return {
-                "response": " | ".join(results),
-                "type": "text",
-                "status": "success"
-            }
+    return {
+        "response": " | ".join(results),
+        "type": "text",
+        "status": "success"
+    }
 
-      # --- CASE B: JSON VISUALS ---
+# --- CASE B: JSON VISUALS ---
 content = ai_response.content.strip()
 if "```json" in content:
     try:
         # Extract JSON from code blocks
+        # We split by ```json, take the second part, then split by ``` and take the first part
         clean_json = content.split("```json")[1].split("```")[0].strip()
         data_obj = json.loads(clean_json)
+        
         # 1. Handle Chart
         if data_obj.get("is_chart"):
             return {
@@ -756,9 +758,9 @@ if "```json" in content:
                 "type": "table", 
                 "status": "success"
             }
+        
         # 3. Handle Task Addition (Google Sheets Integration)
         if data_obj.get("action") == "add":
-            # Extract task details with safety defaults
             task_name = data_obj.get("task_name")
             assigned_to = data_obj.get("assigned_to", "Unassigned")
             start_date = data_obj.get("start_date", "")
@@ -766,10 +768,9 @@ if "```json" in content:
             status = data_obj.get("status", "Pending")
             client = data_obj.get("client", "")
             notify_email = data_obj.get("notify_email", None)
-            # Call your internal API to append data to Google Sheets
-            api_url = "https://web-production-b8ca4.up.railway.app/api/add-task" 
             
-            # The indentation here caused your specific error - now fixed:
+            api_url = "https://web-production-b8ca4.up.railway.app/api/add-task"
+            
             sheet_response = requests.post(api_url, json={
                 "task_name": task_name,
                 "assigned_to": assigned_to,
@@ -779,7 +780,7 @@ if "```json" in content:
                 "client": client,
                 "notify_email": notify_email
             })
-            # Check if the Sheet update was successful
+            
             if sheet_response.status_code == 200:
                 return {
                     "response": f"✅ Task '{task_name}' has been successfully added to the Sheet.",
@@ -792,17 +793,19 @@ if "```json" in content:
                     "type": "text",
                     "status": "error"
                 }
+
     except Exception as e:
         print(f"JSON Parsing Error: {e}")
-        # Optionally return a fallback message here or pass
+        # Pass here so it falls through to Case C (Text) if JSON fails
         pass
 
-        # --- CASE C: TEXT ---
-        return {
-            "response": content,
-            "type": "text",
-            "status": "success"
-        }
+# --- CASE C: TEXT ---
+# This is the default return if no tools were used and no valid JSON was found
+return {
+    "response": content,
+    "type": "text",
+    "status": "success"
+}
 
     except Exception as e:
         print(f"❌ Chat Error: {e}")
