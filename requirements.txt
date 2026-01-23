@@ -1,0 +1,9 @@
+fastapi
+pandas
+gspread
+requests
+python-dotenv
+uvicorn
+matplotlib
+langchain_openai
+apscheduler
