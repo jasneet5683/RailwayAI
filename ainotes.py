@@ -670,6 +670,8 @@ def chat(request: PromptRequest):
         - If the user says "Send email with a TABLE", call 'send_email_tool' with attachment_type='table'.
         - If the user says "Send email", use attachment_type='none'.
         - Do NOT call the tool twice.
+        - Answer general questions normally.
+        - Critical if the users asks to "create action item" or "Add Task", NOT just reply with text. Instead, output a JSON block strictly following this format:  
 
         FORMAT FOR TASK ADDITION (Output this JSON strictly):
         ```json
@@ -679,7 +681,7 @@ def chat(request: PromptRequest):
             "assigned_to": "Assignee Name",
             "start_date": "YYYY-MM-DD",
             "end_date": "YYYY-MM-DD",
-            "status": "Pending",
+            "status": "Not Started",
             "client": "Client Name",
             "notify_email": "email@example.com"
         }}
@@ -775,7 +777,7 @@ def chat(request: PromptRequest):
                         "assigned_to": data_obj.get("assigned_to", "Unassigned"),
                         "start_date": data_obj.get("start_date", ""),
                         "end_date": data_obj.get("end_date", ""),
-                        "status": data_obj.get("status", "Pending"),
+                        "status": data_obj.get("status", "Not Started"),
                         "client": data_obj.get("client", ""),
                         "notify_email": data_obj.get("notify_email", None)
                     }
