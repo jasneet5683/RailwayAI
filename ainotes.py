@@ -27,6 +27,11 @@ import base64
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 
+#for Speech Recognition
+from fastapi import FastAPI, UploadFile, File, HTTPException
+import speech_recognition as sr
+from pydub import AudioSegment
+import io
 
 # Load environment variables
 load_dotenv()
@@ -527,6 +532,46 @@ async def startup_event():
 async def shutdown_event():
     scheduler.shutdown()
 
+#function to parse tasks from command
+def parse_task_from_command(command_text: str):
+    """
+    Parses natural language text into a dictionary compatible with TaskRequest.
+    Example Input: "Add task Buy Milk start date 2023-10-01"
+    """
+    command_text = command_text.lower()
+    
+    # Basic logic to check if this is an 'add task' command
+    if "add task" in command_text:
+        # Remove the trigger phrase and split by comma or key phrases
+        # This logic splits by commas for simplicity
+        clean_text = command_text.replace("add task", "").strip()
+        parts = clean_text.split(",")
+        
+        task_info = {
+            "client": "",      # Defaults
+            "notify_email": "" # Defaults
+        }
+        
+        # Simple keyword parsing
+        for part in parts:
+            part = part.strip()
+            if "start date" in part:
+                task_info['start_date'] = part.split("start date")[-1].strip()
+            elif "end date" in part:
+                task_info['end_date'] = part.split("end date")[-1].strip()
+            elif "assigned to" in part:
+                task_info['assigned_to'] = part.split("assigned to")[-1].strip()
+            elif "status" in part:
+                task_info['status'] = part.split("status")[-1].strip()
+            elif part:
+                # Assume the first non-keyword chunk is the task name
+                if 'task_name' not in task_info:
+                    task_info['task_name'] = part
+        
+        return task_info
+        
+    return None
+
 # --- 6. API ENDPOINTS ---
 
 # Fixes 404 Error
@@ -587,6 +632,51 @@ def add_task(task: TaskRequest):
         }
     except Exception as e:
         return {"message": f"Failed to add task: {str(e)}", "status": "error"}
+
+#function for speech recongnition
+@app.post("/api/voice")
+async def process_audio(audio: UploadFile = File(...)):
+    try:
+        # 1. Read Audio File
+        audio_bytes = await audio.read()
+        
+        # 2. Convert to WAV using PyDub (Handles various formats like mp3, ogg, etc.)
+        audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        wav_buffer = io.BytesIO()
+        audio_segment.export(wav_buffer, format="wav")
+        wav_buffer.seek(0)
+        
+        # 3. Transcribe using SpeechRecognition
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_buffer) as source:
+            audio_data = recognizer.record(source)
+            # Using Open AI Speech API (default key)
+            transcribed_text = recognizer.recognize_openai(audio_data)
+            print(f"User said: {transcribed_text}")
+        # 4. Parse Text into Task Data
+        task_data = parse_task_from_command(transcribed_text)
+        
+        if task_data:
+            # 5. Call the existing add_task function
+            # We wrap the dictionary in your existing Pydantic model
+            new_task_request = TaskRequest(**task_data)
+            result = add_task(new_task_request)
+            
+            return {
+                "status": "success",
+                "transcription": transcribed_text,
+                "task_created": result
+            }
+        else:
+            return {
+                "status": "warning",
+                "message": "Audio processed, but no 'add task' command was recognized.",
+                "transcription": transcribed_text
+            }
+    except Exception as e:
+        print(f"Error processing audio: {e}")
+        return {"status": "error", "message": str(e)}
+
 
 # --- 7. LANGCHAIN TOOLS ---
 
