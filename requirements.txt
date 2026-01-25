@@ -11,3 +11,6 @@ gspread
 oauth2client
 matplotlib
 apscheduler
+python-multipart
+SpeechRecognition
+pydub
