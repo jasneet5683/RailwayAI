@@ -652,10 +652,10 @@ async def process_audio(audio: UploadFile = File(...)):
             audio_data = recognizer.record(source)
             # Using Open AI Speech API (default key)
             transcribed_text = recognizer.recognize_openai(audio_data)
-            print(f"User said: {transcribed_text}")
+            print(f"DEBUG - User said: {transcribed_text}")
         # 4. Parse Text into Task Data
         task_data = parse_task_from_command(transcribed_text)
-        
+        print(f"DEBUG - Parsed date: {task_data}")        
         if task_data:
             # 5. Call the existing add_task function
             # We wrap the dictionary in your existing Pydantic model
@@ -673,6 +673,16 @@ async def process_audio(audio: UploadFile = File(...)):
                 "message": "Audio processed, but no 'add task' command was recognized.",
                 "transcription": transcribed_text
             }
+    except sr.UnknownValueError:
+        return {"status": "error", "message": "Could not understand audio."}
+    
+    except sr.RequestError as e:
+        return {"status": "error", "message": f"Speech Service Error: {e}"}
+    except ValidationError as e:
+        # This catches if your parser returns data that fits the wrong format
+        print(f"ERROR - Validation Failed: {e}")
+        return {"status": "error", "message": f"Data Validation Error: {e}"}
+    
     except Exception as e:
         print(f"Error processing audio: {e}")
         return {"status": "error", "message": str(e)}
