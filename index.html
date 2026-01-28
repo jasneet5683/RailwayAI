@@ -303,6 +303,32 @@
             });
         }
 
+         async function handleAudioUpload(file) {
+    const formData = new FormData();
+    formData.append('audio', file);
+    // Show a loading state if you have one
+    addMessage("System", "Processing audio and generating summary...");
+    try {
+        const response = await fetch(`${API_URL}/api/voice`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            // 1. Display the Transcription
+            addMessage("Transcription", result.transcription);
+            // 2. Display the AI Summary
+            // You might want to style this differently to make it stand out
+            addMessage("AI Summary ✨", result.summary);
+            
+        } else {
+            console.error(result.message);
+            addMessage("Error", "Something went wrong processing the audio.");
+        }
+    } catch (error) {
+        console.error("Network error:", error);
+    }
+}
         // --- CHAT LOGIC ---
         function sendMessage() {
             const input = document.getElementById("userInput");
@@ -385,6 +411,8 @@
                 console.error(e);
             });
         }
+
+       
 
         // --- RENDER HELPERS ---
         function addMessage(text, cls) {
