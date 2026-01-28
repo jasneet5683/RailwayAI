@@ -665,7 +665,7 @@ async def process_audio(audio: UploadFile = File(...)):
         # transcribed_text = transcribe_function(saved_file_path) 
         
         # If you are testing without real audio logic yet, you can uncomment this:
-        # transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
+     transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
         # 2. GENERATE SUMMARY
         # Pass the text to our helper function
         summary_text = create_simple_summary(transcribed_text)
