@@ -668,7 +668,7 @@ async def process_audio(audio: UploadFile = File(...)):
      transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
         # 2. GENERATE SUMMARY
         # Pass the text to our helper function
-        summary_text = create_simple_summary(transcribed_text)
+     summary_text = create_simple_summary(transcribed_text)
         
         print(f"Transcription: {transcribed_text}")
         print(f"Summary: {summary_text}")
