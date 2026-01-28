@@ -531,6 +531,26 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     scheduler.shutdown()
+#------ Helper for summary genration
+def create_simple_summary(text: str) -> str:
+    """
+    Creates a basic summary by extracting the first two sentences.
+    Useful for quick logic without heavy NLP dependencies.
+    """
+    if not text:
+        return ""
+
+    # Split text roughly by sentences (looking for period + space)
+    sentences = text.split('. ')
+    
+    # If the text is short (less than 3 sentences), just return the whole thing
+    if len(sentences) < 3:
+        return text
+
+    # Otherwise, join the first two sentences to create a 'preview' summary
+    summary = '. '.join(sentences[:2]) + '.'
+    return summary
+
 
 #function to parse tasks from command
 def parse_task_from_command(command_text: str):
@@ -633,56 +653,31 @@ def add_task(task: TaskRequest):
     except Exception as e:
         return {"message": f"Failed to add task: {str(e)}", "status": "error"}
 
-#function for speech recongnition
+# ----- API function for speech recongnition
 @app.post("/api/voice")
 async def process_audio(audio: UploadFile = File(...)):
-    try:
-        # 1. Read Audio File
-        audio_bytes = await audio.read()
+   try:
+        # 1. SAVE & TRANSCRIBE AUDIO
+        # (Your existing code to save the file and run the transcription goes here)
+        # For this example, let's assume the result is stored in 'transcribed_text'
         
-        # 2. Convert to WAV using PyDub (Handles various formats like mp3, ogg, etc.)
-        audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes))
-        wav_buffer = io.BytesIO()
-        audio_segment.export(wav_buffer, format="wav")
-        wav_buffer.seek(0)
+        # Example placeholder:
+        # transcribed_text = transcribe_function(saved_file_path) 
         
-        # 3. Transcribe using SpeechRecognition
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_buffer) as source:
-            audio_data = recognizer.record(source)
-            # Using Open AI Speech API (default key)
-            transcribed_text = recognizer.recognize_openai(audio_data)
-            print(f"DEBUG - User said: {transcribed_text}")
-        # 4. Parse Text into Task Data
-        task_data = parse_task_from_command(transcribed_text)
-        print(f"DEBUG - Parsed date: {task_data}")        
-        if task_data:
-            # 5. Call the existing add_task function
-            # We wrap the dictionary in your existing Pydantic model
-            new_task_request = TaskRequest(**task_data)
-            result = add_task(new_task_request)
-            
-            return {
-                "status": "success",
-                "transcription": transcribed_text,
-                "task_created": result
-            }
-        else:
-            return {
-                "status": "warning",
-                "message": "Audio processed, but no 'add task' command was recognized.",
-                "transcription": transcribed_text
-            }
-    except sr.UnknownValueError:
-        return {"status": "error", "message": "Could not understand audio."}
-    
-    except sr.RequestError as e:
-        return {"status": "error", "message": f"Speech Service Error: {e}"}
-    except ValidationError as e:
-        # This catches if your parser returns data that fits the wrong format
-        print(f"ERROR - Validation Failed: {e}")
-        return {"status": "error", "message": f"Data Validation Error: {e}"}
-    
+        # If you are testing without real audio logic yet, you can uncomment this:
+        # transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
+        # 2. GENERATE SUMMARY
+        # Pass the text to our helper function
+        summary_text = create_simple_summary(transcribed_text)
+        
+        print(f"Transcription: {transcribed_text}")
+        print(f"Summary: {summary_text}")
+        # 3. RETURN RESPONSE
+        return {
+            "status": "success",
+            "transcription": transcribed_text,
+            "summary": summary_text
+        }
     except Exception as e:
         print(f"Error processing audio: {e}")
         return {"status": "error", "message": str(e)}
