@@ -678,7 +678,7 @@ async def process_audio(audio: UploadFile = File(...)):
             "transcription": transcribed_text,
             "summary": summary_text
         }
-    except Exception as e:
+   except Exception as e:
         print(f"Error processing audio: {e}")
         return {"status": "error", "message": str(e)}
 
