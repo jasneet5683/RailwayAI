@@ -657,6 +657,23 @@ def add_task(task: TaskRequest):
 @app.post("/api/voice")
 async def process_audio(audio: UploadFile = File(...)):
    try:
+        # 1. Read Audio File
+        audio_bytes = await audio.read()
+        
+        # 2. Convert to WAV using PyDub (Handles various formats like mp3, ogg, etc.)
+        audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        wav_buffer = io.BytesIO()
+        audio_segment.export(wav_buffer, format="wav")
+        wav_buffer.seek(0)
+        
+        # 3. Transcribe using SpeechRecognition
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_buffer) as source:
+            audio_data = recognizer.record(source)
+            # Using Open AI Speech API (default key)
+            transcribed_text = recognizer.recognize_openai(audio_data)
+            print(f"DEBUG - User said: {transcribed_text}")
+
         # 1. SAVE & TRANSCRIBE AUDIO
         # (Your existing code to save the file and run the transcription goes here)
         # For this example, let's assume the result is stored in 'transcribed_text'
@@ -665,7 +682,7 @@ async def process_audio(audio: UploadFile = File(...)):
         # transcribed_text = transcribe_function(saved_file_path) 
         
         # If you are testing without real audio logic yet, you can uncomment this:
-        transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
+        #transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
         # 2. GENERATE SUMMARY
         # Pass the text to our helper function
         summary_text = create_simple_summary(transcribed_text)
