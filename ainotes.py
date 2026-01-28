@@ -592,6 +592,28 @@ def parse_task_from_command(command_text: str):
         
     return None
 
+# Helper function to generate summary
+async def generate_ai_summary(text: str) -> str:
+    try:
+        # Initialize the model (Adjust temperature for creativity vs precision)
+        llm = ChatOpenAI(
+            model="gpt-4", 
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            temperature=0.5
+        )
+        # Define the instructions for the AI
+        messages = [
+            SystemMessage(content="You are a helpful AI assistant. Summarize the following text clearly and concisely in bullet points."),
+            HumanMessage(content=text)
+        ]
+        # Get response
+        response = await llm.invoke(messages)
+        return response.content.strip()
+    except Exception as e:
+        print(f"Error generating summary: {e}")
+        return "Summary could not be generated at this time."
+
+
 # --- 6. API ENDPOINTS ---
 
 # Fixes 404 Error
@@ -685,16 +707,25 @@ async def process_audio(audio: UploadFile = File(...)):
         #transcribed_text = "This is a test recording. We are ignoring dates for now. We just want a summary."
         # 2. GENERATE SUMMARY
         # Pass the text to our helper function
-        summary_text = create_simple_summary(transcribed_text)
+        #summary_text = create_simple_summary(transcribed_text)
         
-        print(f"Transcription: {transcribed_text}")
-        print(f"Summary: {summary_text}")
-        # 3. RETURN RESPONSE
+        #Ai Summary 
+        ai_summary = await generate_ai_summary(transcribed_text)
+        # 3. Return JSON response
         return {
             "status": "success",
             "transcription": transcribed_text,
-            "summary": summary_text
+            "summary": ai_summary
         }
+        print(f"Transcription: {transcribed_text}")
+        print(f"Summary: {ai_summary}")
+        
+        # 3. RETURN RESPONSE
+        #return {
+        #    "status": "success",
+        #    "transcription": transcribed_text,
+        #    "summary": summary_text
+        #}
    except Exception as e:
         print(f"Error processing audio: {e}")
         return {"status": "error", "message": str(e)}
