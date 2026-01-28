@@ -593,7 +593,7 @@ def parse_task_from_command(command_text: str):
     return None
 
 # Helper function to generate summary
-async def generate_ai_summary(text: str) -> str:
+def generate_ai_summary(text: str) -> str:
     try:
         # Initialize the model (Adjust temperature for creativity vs precision)
         llm = ChatOpenAI(
@@ -607,7 +607,7 @@ async def generate_ai_summary(text: str) -> str:
             HumanMessage(content=text)
         ]
         # Get response
-        response = await llm.invoke(messages)
+        response = llm.invoke(messages)
         return response.content.strip()
     except Exception as e:
         print(f"Error generating summary: {e}")
@@ -710,7 +710,7 @@ async def process_audio(audio: UploadFile = File(...)):
         #summary_text = create_simple_summary(transcribed_text)
         
         #Ai Summary 
-        ai_summary = await generate_ai_summary(transcribed_text)
+        ai_summary = generate_ai_summary(transcribed_text)
         # 3. Return JSON response
         return {
             "status": "success",
