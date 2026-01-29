@@ -275,33 +275,47 @@
         }
 
        async function sendAudioToBackend(blob) {
-            toggleInput(false);
-            
-            // Create FormData to send file
-            const formData = new FormData();
-            formData.append("audio", blob, "recording.wav");
+    // Visual feedback that processing started
+    toggleInput(false);
+    
+    // Prepare the file for upload
+    const formData = new FormData();
+    formData.append("audio", blob, "recording.wav");
 
-            // Assuming your backend has an /api/voice endpoint
-            // If it uses the same /api/chat, you need to adjust this URL
-            fetch(`${API_URL}/api/voice`, { 
-                method: "POST",
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                // Remove the "Listening..." message (optional, or just add new response)
-                addMessage(data.response, "ai-message");
-                if(data.type === "table") renderTable(data.table_data);
-                if(data.type === "chart") renderChart(data.chart_data);
-            })
-            .catch(e => {
-                addMessage("❌ Error processing audio.", "ai-message");
-                console.error(e);
-            })
-            .finally(() => {
-                toggleInput(true);
-            });
+    // Send to your Python backend
+    fetch(`${API_URL}/api/voice`, { 
+        method: "POST",
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        // DEBUG: Log the exact object to the browser console to see what keys you have
+        console.log("Backend Response Object:", data); 
+
+        if (data.status === "success" || data.summary) {
+            // FIX: Use 'data.summary' instead of 'data.response'
+            addMessage(data.summary, "ai-message");
+            
+            // Optional: If you want to show what the user said as well
+            // addMessage(data.transcription, "user-message"); 
+            
+            // Handle other types if your backend sends them (tables, charts)
+            if(data.type === "table") renderTable(data.table_data);
+            if(data.type === "chart") renderChart(data.chart_data);
+        } else {
+            addMessage("❌ The server returned a success status, but no summary was found.", "ai-message");
         }
+    })
+    .catch(e => {
+        console.error("Fetch Error:", e);
+        addMessage("❌ Error processing audio.", "ai-message");
+    })
+    .finally(() => {
+        // Re-enable input controls
+        toggleInput(true);
+    });
+}
+
 
          async function handleAudioUpload(file) {
     const formData = new FormData();
