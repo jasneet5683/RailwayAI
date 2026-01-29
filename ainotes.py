@@ -594,7 +594,7 @@ def parse_task_from_command(command_text: str):
 
 # Helper function to generate summary
 def generate_ai_summary(text: str) -> str:
-    print(f"DEBUG - entering AI function")
+    print(f"DEBUG - entering AI function with text: {text[:10]}...")
     try:
         # Initialize the model (Adjust temperature for creativity vs precision)
         llm = ChatOpenAI(
@@ -608,10 +608,17 @@ def generate_ai_summary(text: str) -> str:
             HumanMessage(content=text)
         ]
         # Get response
+        print("DEBUG - Sending request to OpenAI...")
         response = llm.invoke(messages)
+        # Check if content exists
+        if not response.content:
+            print("⚠️ DEBUG - Received empty response from OpenAI.")
+            return "Summary could not be generated (Empty response)."
+        print("DEBUG - Received valid response from OpenAI.")
         return response.content.strip()
+        
     except Exception as e:
-        print(f"Error generating summary: {e}")
+        print(f"❌ Error generating summary: {e}")
         return "Summary could not be generated at this time."
 
 
@@ -714,14 +721,19 @@ async def process_audio(audio: UploadFile = File(...)):
         
         #Ai Summary 
         ai_summary = generate_ai_summary(transcribed_text)
+        print("------------------------------------------------")
+        print(f"FINAL Transcription: {transcribed_text}")
+        print(f"FINAL Summary: {ai_summary}")
+        print("------------------------------------------------")
+        
         # 3. Return JSON response
         return {
             "status": "success",
             "transcription": transcribed_text,
             "summary": ai_summary
         }
-        print(f"Transcription: {transcribed_text}")
-        print(f"Summary: {ai_summary}")
+        #print(f"Transcription: {transcribed_text}")
+        #print(f"Summary: {ai_summary}")
         
         # 3. RETURN RESPONSE
         #return {
