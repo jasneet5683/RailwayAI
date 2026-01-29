@@ -594,6 +594,7 @@ def parse_task_from_command(command_text: str):
 
 # Helper function to generate summary
 def generate_ai_summary(text: str) -> str:
+    print(f"DEBUG - entering AI function")
     try:
         # Initialize the model (Adjust temperature for creativity vs precision)
         llm = ChatOpenAI(
